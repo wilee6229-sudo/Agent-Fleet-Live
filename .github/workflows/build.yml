@@ -19,14 +19,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y live-build debootstrap squashfs-tools xorriso
 
-      - name: Configure live-build
+      - name: Configure and Build ISO
         run: |
           sudo lb clean || true
           sudo bash config/build
-
-      - name: Build ISO
-        run: |
-          sudo lb build 2>&1 | tail -50
+          sudo lb build 2>&1 | tee build.log | tail -50
+          echo "Build exit code: $?"
+          ls -la
 
       - name: Find ISO
         id: find-iso
