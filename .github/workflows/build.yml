@@ -21,22 +21,20 @@ jobs:
 
       - name: Configure live-build
         run: |
-          cd agent-live-build
           sudo lb clean || true
-          bash config/build
+          sudo bash config/build
 
       - name: Build ISO
         run: |
-          cd agent-live-build
           sudo lb build 2>&1 | tail -50
 
       - name: Find ISO
         id: find-iso
         run: |
-          ISO=$(find agent-live-build -name "*.hybrid.iso" -o -name "*.iso" | head -1)
+          ISO=$(find . -name "*.hybrid.iso" -o -name "*.iso" | head -1)
           if [ -z "$ISO" ]; then
             echo "ISO not found!"
-            ls -la agent-live-build/
+            ls -la
             exit 1
           fi
           echo "iso_path=$ISO" >> $GITHUB_OUTPUT
