@@ -22,7 +22,7 @@ jobs:
       - name: Build ISO
         run: |
           cd config
-          sudo rm -rf chroot
+          sudo rm -rf chroot .build cache auto
           sudo lb clean || true
           sudo bash build
           sudo lb build

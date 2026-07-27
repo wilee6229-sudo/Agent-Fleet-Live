@@ -20,6 +20,9 @@ npm install -g opencode-ai openclaw openclaude 9router pm2 free-claude-code @24k
 # ZeroClaw
 curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh | bash
 
+# OpenGateway
+curl -fsSL https://gitlawb.com/install.sh | bash
+
 # User setup
 useradd -m -s /bin/bash -G sudo agent 2>/dev/null || true
 echo "agent:agent" | chpasswd
