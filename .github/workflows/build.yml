@@ -19,27 +19,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y live-build debootstrap squashfs-tools xorriso
 
-      - name: Configure and Build ISO
+      - name: Build ISO
         run: |
+          cd config
           sudo lb clean || true
-          sudo bash config/build
-          sudo lb build || true
+          sudo bash build
+          sudo lb build
           echo "Build exit code: $?"
           find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
           ls -la
-          cat /tmp/build.log | tail -50
 
       - name: Find ISO
         id: find-iso
         run: |
-          echo "Searching for ISO..."
-          find . -type f -name "*.iso" -o -name "*.img" -o -name "*.hybrid" 2>/dev/null
-          echo "---"
-          ls -laR . | grep -i "iso\|img\|hybrid\|binary" | head -20
-          ISO=$(find . -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
+          ISO=$(find config -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
           if [ -z "$ISO" ]; then
-            echo "No ISO found. Build directory contents:"
-            ls -la
+            echo "ISO not found!"
+            ls -la config/
             exit 1
           fi
           echo "iso_path=$ISO" >> $GITHUB_OUTPUT
