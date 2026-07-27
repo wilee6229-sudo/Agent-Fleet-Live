@@ -3,16 +3,16 @@ lb config noauto \
     --distribution noble \
     --mode ubuntu \
     --archive-areas "main restricted universe multiverse" \
-    --architectures arm64 \
+    --architectures amd64 \
     --bootloader grub \
     --binary-images iso-hybrid \
     --debian-installer live \
     --memtest none \
-    --parent-mirror-bootstrap "http://ports.ubuntu.com/ubuntu-ports" \
-    --parent-mirror-chroot "http://ports.ubuntu.com/ubuntu-ports" \
-    --parent-mirror-chroot-security "http://ports.ubuntu.com/ubuntu-ports" \
-    --parent-mirror-binary "http://ports.ubuntu.com/ubuntu-ports" \
-    --parent-mirror-binary-security "http://ports.ubuntu.com/ubuntu-ports" \
+    --parent-mirror-bootstrap "http://archive.ubuntu.com/ubuntu" \
+    --parent-mirror-chroot "http://archive.ubuntu.com/ubuntu" \
+    --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu" \
+    --parent-mirror-binary "http://archive.ubuntu.com/ubuntu" \
+    --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu" \
     --iso-application "Agent Fleet Live" \
     --iso-publisher "Agent Fleet" \
     --iso-volume "AGENT-FLEET-LIVE" \
