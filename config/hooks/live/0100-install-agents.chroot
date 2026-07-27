@@ -6,8 +6,8 @@ apt-get install -y nodejs
 curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
 echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
 apt-get update && apt-get install -y cloudflared
-pip3 install --break-system-packages hermes-cli fastapi uvicorn requests aiohttp kimi-code
-npm install -g opencode-ai openclaw openclaude 9router pm2 free-claude-code
+pip3 install --break-system-packages hermes-cli fastapi uvicorn requests aiohttp kimi-code qwen-code
+npm install -g opencode-ai openclaw openclaude 9router pm2 free-claude-code @24klynx/cli
 useradd -m -s /bin/bash -G sudo agent 2>/dev/null || true
 echo "agent:agent" | chpasswd
 echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
