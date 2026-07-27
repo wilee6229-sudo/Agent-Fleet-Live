@@ -23,8 +23,9 @@ jobs:
         run: |
           sudo lb clean || true
           sudo bash config/build
-          sudo lb build 2>&1 | tee build.log | tail -50
+          sudo lb build > /tmp/build.log 2>&1
           echo "Build exit code: $?"
+          find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
           ls -la
 
       - name: Find ISO
