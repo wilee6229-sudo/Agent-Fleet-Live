@@ -20,12 +20,7 @@ jq
 locales
 console-setup
 keyboard-configuration
-hyprland
 kitty
 foot
-waybar
-wofi
 dunst
-grimshot
-xdg-desktop-portal-hyprland
 network-manager-gnome
