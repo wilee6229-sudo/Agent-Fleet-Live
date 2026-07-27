@@ -1,0 +1,24 @@
+#!/bin/sh
+lb config noauto \
+    --distribution noble \
+    --mode ubuntu \
+    --archive-areas "main restricted universe multiverse" \
+    --architectures arm64 \
+    --bootloader grub \
+    --binary-images iso-hybrid \
+    --debian-installer live \
+    --memtest none \
+    --parent-mirror-bootstrap "http://ports.ubuntu.com/ubuntu-ports" \
+    --parent-mirror-chroot "http://ports.ubuntu.com/ubuntu-ports" \
+    --parent-mirror-chroot-security "http://ports.ubuntu.com/ubuntu-ports" \
+    --parent-mirror-binary "http://ports.ubuntu.com/ubuntu-ports" \
+    --parent-mirror-binary-security "http://ports.ubuntu.com/ubuntu-ports" \
+    --iso-application "Agent Fleet Live" \
+    --iso-publisher "Agent Fleet" \
+    --iso-volume "AGENT-FLEET-LIVE" \
+    --apt-indices false \
+    --apt-recommends false \
+    --security true \
+    --backports false \
+    --compression gzip \
+    "$@"

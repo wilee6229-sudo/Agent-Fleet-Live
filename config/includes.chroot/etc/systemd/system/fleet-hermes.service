@@ -1,0 +1,16 @@
+[Unit]
+Description=Fleet — hermes
+After=network.target
+
+[Service]
+Type=simple
+User=agent
+WorkingDirectory=/home/agent/fleet
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/agent
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
+ExecStart=/usr/local/bin/hermes --yolo --continue
+
+[Install]
+WantedBy=multi-user.target

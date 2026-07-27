@@ -1,0 +1,60 @@
+name: Build Agent Fleet ISO
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build debootstrap squashfs-tools xorriso
+
+      - name: Configure live-build
+        run: |
+          cd agent-live-build
+          sudo lb clean || true
+          bash config/build
+
+      - name: Build ISO
+        run: |
+          cd agent-live-build
+          sudo lb build 2>&1 | tail -50
+
+      - name: Find ISO
+        id: find-iso
+        run: |
+          ISO=$(find agent-live-build -name "*.hybrid.iso" -o -name "*.iso" | head -1)
+          if [ -z "$ISO" ]; then
+            echo "ISO not found!"
+            ls -la agent-live-build/
+            exit 1
+          fi
+          echo "iso_path=$ISO" >> $GITHUB_OUTPUT
+          echo "Found: $ISO"
+          ls -lh "$ISO"
+
+      - name: Upload ISO as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-fleet-live
+          path: ${{ steps.find-iso.outputs.iso_path }}
+          retention-days: 30
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Agent Fleet Live Build ${{ github.run_number }}
+          files: ${{ steps.find-iso.outputs.iso_path }}
+          generate_release_notes: true

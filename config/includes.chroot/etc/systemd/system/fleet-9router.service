@@ -1,0 +1,16 @@
+[Unit]
+Description=Fleet — 9router
+After=network.target
+
+[Service]
+Type=simple
+User=agent
+WorkingDirectory=/home/agent/fleet
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/agent
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
+ExecStart=/usr/bin/env PORT=20128 node /usr/lib/node_modules/9router/app/server.js
+
+[Install]
+WantedBy=multi-user.target

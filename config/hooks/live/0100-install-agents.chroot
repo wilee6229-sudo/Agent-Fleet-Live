@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+echo "=== AGENT FLEET CHROOT HOOK ==="
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt-get install -y nodejs
+curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
+apt-get update && apt-get install -y cloudflared
+pip3 install --break-system-packages hermes-cli fastapi uvicorn requests aiohttp
+npm install -g opencode-ai openclaw 9router pm2 free-claude-code
+useradd -m -s /bin/bash -G sudo agent 2>/dev/null || true
+echo "agent:agent" | chpasswd
+echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
+mkdir -p /home/agent/fleet/{logs,inboxes,backups,config}
+chown -R agent:agent /home/agent/fleet
+echo "=== HOOK COMPLETE ==="

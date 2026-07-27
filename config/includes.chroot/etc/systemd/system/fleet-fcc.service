@@ -1,0 +1,16 @@
+[Unit]
+Description=Fleet — fcc
+After=network.target
+
+[Service]
+Type=simple
+User=agent
+WorkingDirectory=/home/agent/fleet
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/agent
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
+ExecStart=/usr/bin/python3 /home/agent/fleet/claude_server.py
+
+[Install]
+WantedBy=multi-user.target

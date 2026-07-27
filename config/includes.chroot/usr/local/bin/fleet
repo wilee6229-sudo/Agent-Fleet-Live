@@ -1,0 +1,52 @@
+#!/bin/bash
+FLEET_DIR="$HOME/fleet"
+SESSION="fleet"
+TOTAL_RAM_MB=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)
+get_tier() {
+    if [ "$TOTAL_RAM_MB" -ge 7500 ]; then echo "full"
+    elif [ "$TOTAL_RAM_MB" -ge 3500 ]; then echo "lite"
+    else echo "minimal"; fi
+}
+TIER="${2:-$(get_tier)}"
+echo "📊 ${TOTAL_RAM_MB}MB RAM → tier: ${TIER}"
+case "${1:-start}" in
+    start)
+        case "$TIER" in
+            full)
+                echo "🚀 Full fleet..."
+                tmux new-session -d -s "$SESSION" -n "infra"
+                tmux send-keys -t "$SESSION:infra" "cd $FLEET_DIR && python3 openclaw_server.py" Enter
+                tmux split-window -h -t "$SESSION:infra"
+                tmux send-keys -t "$SESSION:infra" "node \$(npm root -g)/9router/app/server.js" Enter
+                tmux new-window -t "$SESSION" -n "agents"
+                tmux send-keys -t "$SESSION:agents" "cd $FLEET_DIR && python3 claude_server.py" Enter
+                tmux split-window -h -t "$SESSION:agents"
+                tmux send-keys -t "$SESSION:agents" "opencode --auto" Enter
+                tmux new-window -t "$SESSION" -n "hermes"
+                tmux send-keys -t "$SESSION:hermes" "hermes --yolo --continue" Enter
+                tmux select-window -t "$SESSION:infra"
+                echo "✅ Full fleet started";;
+            lite)
+                echo "🚀 Lite fleet..."
+                tmux new-session -d -s "$SESSION" -n "core"
+                tmux send-keys -t "$SESSION:core" "cd $FLEET_DIR && python3 openclaw_server.py" Enter
+                tmux split-window -h -t "$SESSION:core"
+                tmux send-keys -t "$SESSION:core" "opencode --auto" Enter
+                tmux split-window -v -t "$SESSION:core"
+                tmux send-keys -t "$SESSION:core" "hermes --yolo --continue" Enter
+                tmux select-window -t "$SESSION:core"
+                echo "✅ Lite fleet started (3 agents, ${TOTAL_RAM_MB}MB RAM)";;
+            minimal)
+                echo "🚀 Minimal fleet..."
+                tmux new-session -d -s "$SESSION" -n "hermes"
+                tmux send-keys -t "$SESSION:hermes" "hermes --yolo --continue" Enter
+                echo "✅ Minimal fleet (hermes only, ${TOTAL_RAM_MB}MB RAM)";;
+        esac;;
+    stop) tmux kill-session -t "$SESSION" 2>/dev/null; pkill -f "openclaw_server|claude_server|9router" 2>/dev/null; echo "✅ Stopped";;
+    status) tmux list-windows -t "$SESSION" 2>/dev/null || echo "Not running";;
+    logs) tmux capture-pane -t "$SESSION:hermes" -p 2>/dev/null || echo "No logs";;
+    hyprland) start-hyprland;;
+    lite) TIER=lite $0 start lite;;
+    minimal) TIER=minimal $0 start minimal;;
+    *) echo "Usage: fleet [start|stop|status|logs|hyprland|lite|minimal]";;
+esac
