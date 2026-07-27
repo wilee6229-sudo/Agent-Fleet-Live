@@ -31,10 +31,13 @@ jobs:
       - name: Find ISO
         id: find-iso
         run: |
-          ISO=$(find . -name "*.hybrid.iso" -o -name "*.iso" -o -name "*.img" | head -1)
+          echo "Searching for ISO..."
+          find . -type f -name "*.iso" -o -name "*.img" -o -name "*.hybrid" 2>/dev/null
+          echo "---"
+          ls -laR . | grep -i "iso\|img\|hybrid\|binary" | head -20
+          ISO=$(find . -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
           if [ -z "$ISO" ]; then
-            echo "ISO not found! Listing build directory:"
-            find . -name "*.iso" -o -name "*.img" -o -name "*.hybrid" 2>/dev/null
+            echo "No ISO found. Build directory contents:"
             ls -la
             exit 1
           fi
