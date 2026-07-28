@@ -1,8 +1,6 @@
 name: Build Agent Fleet ISO
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
           cd config
           sudo rm -rf chroot .build cache auto
           sudo lb clean || true
-          sudo bash build
+          sudo lb config noauto --distribution noble --mode ubuntu --archive-areas "main restricted universe multiverse" --architectures amd64 --bootloader grub --binary-images iso-hybrid --debian-installer live --memtest none --parent-mirror-bootstrap "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu" --parent-mirror-binary "http://archive.ubuntu.com/ubuntu" --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu" --iso-application "Agent Fleet Live" --iso-publisher "Agent Fleet" --iso-volume "AGENT-FLEET-LIVE" --apt-indices false --apt-recommends false --security true --backports false --compression gzip
           sudo lb build
           echo "Build exit code: $?"
           find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
