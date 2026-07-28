@@ -23,10 +23,11 @@ jobs:
           sudo rm -rf chroot .build cache auto binary
           sudo lb clean || true
           sudo bash build
-          set +e
-          sudo lb build
+          sudo lb bootstrap
+          sudo lb chroot || true
+          sudo lb binary
+          sudo lb image
           echo "Build exit code: $?"
-          set -e
           find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
           ls -la
 
