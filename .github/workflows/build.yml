@@ -19,14 +19,10 @@ jobs:
 
       - name: Build ISO
         run: |
-          cd config
-          sudo rm -rf chroot .build cache auto
-          sudo lb clean || true
-          sudo lb config noauto --distribution noble --mode ubuntu --archive-areas "main restricted universe multiverse" --architectures amd64 --bootloader grub --binary-images iso-hybrid --debian-installer live --memtest none --parent-mirror-bootstrap "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu" --parent-mirror-binary "http://archive.ubuntu.com/ubuntu" --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu" --iso-application "Agent Fleet Live" --iso-publisher "Agent Fleet" --iso-volume "AGENT-FLEET-LIVE" --apt-indices false --apt-recommends false --security true --backports false --compression gzip
-          sudo lb bootstrap
-          sudo lb chroot
-          sudo lb binary
-          sudo lb image
+          sudo rm -rf config/chroot config/.build config/cache config/auto
+          sudo lb clean --config config || true
+          sudo lb config --config config noauto --distribution noble --mode ubuntu --archive-areas "main restricted universe multiverse" --architectures amd64 --bootloader grub --binary-images iso-hybrid --debian-installer live --memtest none --parent-mirror-bootstrap "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot "http://archive.ubuntu.com/ubuntu" --parent-mirror-chroot-security "http://security.ubuntu.com/ubuntu" --parent-mirror-binary "http://archive.ubuntu.com/ubuntu" --parent-mirror-binary-security "http://security.ubuntu.com/ubuntu" --iso-application "Agent Fleet Live" --iso-publisher "Agent Fleet" --iso-volume "AGENT-FLEET-LIVE" --apt-indices false --apt-recommends false --security true --backports false --compression gzip
+          sudo lb build --config config
           echo "Build exit code: $?"
           find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
           ls -la
@@ -34,7 +30,7 @@ jobs:
       - name: Find ISO
         id: find-iso
         run: |
-          ISO=$(find config -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
+          ISO=$(find . -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
           if [ -z "$ISO" ]; then
             echo "ISO not found!"
             ls -la config/
