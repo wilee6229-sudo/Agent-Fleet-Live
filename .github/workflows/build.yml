@@ -28,21 +28,24 @@ jobs:
           sudo lb binary
           sudo lb image
           echo "Build exit code: $?"
-          find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
-          ls -la
 
       - name: Find ISO
         id: find-iso
         run: |
-          ISO=$(find config -type f \( -name "*.iso" -o -name "*.img" \) | head -1)
-          if [ -z "$ISO" ]; then
-            echo "ISO not found!"
-            ls -la config/
+          # Search parent directory first, then fallback to config/
+          ISO_FILE=$(find . -maxdepth 2 -name "*.hybrid.iso" | head -n 1)
+          if [ -z "$ISO_FILE" ]; then
+            ISO_FILE=$(find config -maxdepth 2 -name "*.hybrid.iso" -o -name "*.iso" -o -name "*.img" | head -n 1)
+          fi
+          if [ -z "$ISO_FILE" ]; then
+            echo "❌ Error: ISO artifact not found!"
+            ls -la config/ 2>/dev/null || true
+            find . -type f -name "*.iso" -o -name "*.img" 2>/dev/null
             exit 1
           fi
-          echo "iso_path=$ISO" >> $GITHUB_OUTPUT
-          echo "Found: $ISO"
-          ls -lh "$ISO"
+          echo "✅ Found build artifact at: $ISO_FILE"
+          echo "iso_path=$ISO_FILE" >> $GITHUB_OUTPUT
+          ls -lh "$ISO_FILE"
 
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4

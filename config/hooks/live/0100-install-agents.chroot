@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+echo "=== AGENT FLEET CHROOT HOOK ==="
+
+# Node.js
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt-get install -y nodejs
+
+# Cloudflared — official repo
+curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
+apt-get update && apt-get install -y cloudflared
+
+# Python packages
+pip3 install --break-system-packages hermes-cli fastapi uvicorn requests aiohttp kimi-code qwen-code
+
+# NPM packages — --unsafe-perm for global installs
+npm install -g --unsafe-perm opencode-ai openclaw openclaude 9router pm2 @24klynx/cli
+
+# ZeroClaw
+curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh | bash
+
+# OpenGateway
+curl -fsSL https://gitlawb.com/install.sh | bash
+
+# User setup
+useradd -m -s /bin/bash -G sudo agent 2>/dev/null || true
+echo "agent:agent" | chpasswd
+echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
+mkdir -p /home/agent/fleet/{logs,inboxes,backups,config}
+chown -R agent:agent /home/agent/fleet
+echo "=== HOOK COMPLETE ==="
