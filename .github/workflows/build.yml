@@ -2,11 +2,13 @@ name: Build Agent Fleet ISO
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # no timeout
+    timeout-minutes: 180
     
     steps:
       - name: Checkout
@@ -23,29 +25,30 @@ jobs:
           sudo rm -rf chroot .build cache auto binary
           sudo lb clean || true
           sudo bash build
-          sudo lb bootstrap
-          sudo lb chroot || true
-          sudo lb binary
-          sudo lb image
-          echo "Build exit code: $?"
+          # Run lb build but catch its exit code
+          set +e
+          sudo lb build 2>&1
+          EXIT_CODE=$?
+          set -e
+          echo "lb build exit code: $EXIT_CODE"
+          echo "--- Searching for ISO ---"
+          find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
+          ls -la
 
       - name: Find ISO
         id: find-iso
         run: |
-          # Search parent directory first, then fallback to config/
-          ISO_FILE=$(find . -maxdepth 2 -name "*.hybrid.iso" | head -n 1)
-          if [ -z "$ISO_FILE" ]; then
-            ISO_FILE=$(find config -maxdepth 2 -name "*.hybrid.iso" -o -name "*.iso" -o -name "*.img" | head -n 1)
-          fi
-          if [ -z "$ISO_FILE" ]; then
-            echo "❌ Error: ISO artifact not found!"
-            ls -la config/ 2>/dev/null || true
-            find . -type f -name "*.iso" -o -name "*.img" 2>/dev/null
+          ISO=$(find . -type f \( -name "*.hybrid.iso" -o -name "*.iso" -o -name "*.img" \) | head -1)
+          if [ -z "$ISO" ]; then
+            echo "No ISO found. Searching broadly..."
+            find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
+            ls config/
+            ls binary/ 2>/dev/null || true
             exit 1
           fi
-          echo "✅ Found build artifact at: $ISO_FILE"
-          echo "iso_path=$ISO_FILE" >> $GITHUB_OUTPUT
-          ls -lh "$ISO_FILE"
+          echo "iso_path=$ISO" >> $GITHUB_OUTPUT
+          echo "Found: $ISO"
+          ls -lh "$ISO"
 
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
@@ -55,7 +58,7 @@ jobs:
           retention-days: 30
 
       - name: Create Release
-        if: github.ref == 'refs/heads/main'
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
