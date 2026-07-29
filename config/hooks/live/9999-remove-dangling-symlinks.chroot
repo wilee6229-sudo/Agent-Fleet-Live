@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+# Remove dangling symlinks that cause lb_chroot_hacks to fail
+# Runs as the LAST hook (9999) after all packages are installed
+rm -f chroot/boot/initrd.img chroot/boot/initrd.img.old 2>/dev/null || true
