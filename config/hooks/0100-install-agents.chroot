@@ -11,8 +11,9 @@ curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | gpg --dearmor -o /us
 echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
 apt-get update && apt-get install -y cloudflared
 
-# Python packages — hermes-agent (NOT hermes-cli squat), aider, vibe (mistral-vibe), huggingface_hub (hf CLI)
-pip3 install --break-system-packages hermes-agent fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat vibe huggingface_hub
+# Python packages — hermes-agent (NOT hermes-cli squat), aider, mistral-vibe (NOT bare vibe:
+# pypi "vibe" is an unrelated broken sdist that fails metadata generation), huggingface_hub (hf CLI)
+pip3 install --break-system-packages hermes-agent fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
 # NPM packages — --unsafe-perm for global installs.
 # @gitlawb/openclaude (NOT bare openclaude squat); kimi-code npm-only (pip version conflicts on bin);
