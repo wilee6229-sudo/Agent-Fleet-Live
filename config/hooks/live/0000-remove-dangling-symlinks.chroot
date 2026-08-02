@@ -1,4 +1,5 @@
 #!/bin/sh
 set -e
 # Remove dangling symlinks that cause lb_chroot_hacks to fail with exit 123
-rm -f chroot/boot/initrd.img chroot/boot/initrd.img.old 2>/dev/null || true
+# NOTE: hooks run INSIDE the chroot (cwd=/), so paths are relative to the chroot root
+rm -f boot/initrd.img boot/initrd.img.old 2>/dev/null || true
