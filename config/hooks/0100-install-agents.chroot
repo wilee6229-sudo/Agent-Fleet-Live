@@ -6,8 +6,8 @@ echo "=== AGENT FLEET CHROOT HOOK ==="
 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt-get install -y nodejs
 
-# Cloudflared — official repo
-curl -fsSL https://pkg.cloudflare.com/cloudflared-ascii.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
+# Cloudflared — official repo (key URL changed 2025; cloudflare-main.gpg is current)
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
 echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
 apt-get update && apt-get install -y cloudflared
 
