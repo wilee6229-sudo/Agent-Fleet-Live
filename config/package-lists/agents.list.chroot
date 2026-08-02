@@ -1,3 +1,4 @@
+# Agent Fleet Live — base packages
 linux-image-generic
 systemd-sysv
 sudo
@@ -20,7 +21,52 @@ jq
 locales
 console-setup
 keyboard-configuration
+
+# Terminal & shell
 kitty
 foot
+zsh
+bash-completion
+
+# Hyprland desktop stack (from cppiber/hyprland PPA for noble)
+hyprland
+hyprland-qtutils
+hyprpolkitagent
+hyprlock
+hypridle
+hyprpaper
+hyprpicker
+waybar
+wofi
+fuzzel
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+grim
+slurp
+wl-clipboard
+playerctl
+brightnessctl
+pavucontrol
+libnotify-bin
+qtwayland5
+seatd
+xwayland
+pipewire
+pipewire-pulse
+wireplumber
+gstreamer1.0-pipewire
+fonts-noto
+fonts-noto-color-emoji
+mesa-vulkan-drivers
+libgl1-mesa-dri
+xdg-user-dirs
+xdg-utils
+dbus-x11
+
+# Notifications & misc
 dunst
 network-manager-gnome
+nm-tray
+
+# Browser (real .deb — epiphany/WebKitGTK, Wayland-native; NOT snap transition packages)
+epiphany-browser

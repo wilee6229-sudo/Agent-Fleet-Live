@@ -4,4 +4,8 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_RUNTIME_DIR=/run/user/$(id -u)
 mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
+# Software rendering fallback for machines without working GPU/driver
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
 exec dbus-run-session -- Hyprland
