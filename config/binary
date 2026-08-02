@@ -78,8 +78,8 @@ LB_HDD_SIZE="10000"
 LB_ISO_APPLICATION="Agent Fleet Live"
 
 # $LB_ISO_PREPARER: set iso preparer
-# (Default: live-build 3.0~a57-1; http://packages.qa.debian.org/live-build)
-LB_ISO_PREPARER="live-build 3.0~a57-1; http://packages.qa.debian.org/live-build"
+# (Default: live-build $VERSION; http://packages.qa.debian.org/live-build)
+LB_ISO_PREPARER="live-build $VERSION; http://packages.qa.debian.org/live-build"
 
 # $LB_ISO_PUBLISHER: set iso publisher
 # (Default: Agent Fleet)
