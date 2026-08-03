@@ -23,15 +23,18 @@ timeout 600 apt-get update && timeout 600 apt-get install -y cloudflared
 # but resolving them all in ONE pip command makes pip walk down through every httpcore version
 # (~5 min each) then every hermes-agent version (~50 min each) — it NEVER completes.
 # Fix: pre-pin the shared pins, install hermes-agent alone, then the rest. No backtracking.
-timeout 600 pip3 install --break-system-packages "httpx[socks]==0.28.1" "httpcore==1.0.9"
-# Build 6 root cause: Ubuntu 24.04 ships typing_extensions 4.10.0 as dpkg package
-# (python3-typing-extensions). hermes-agent deps need a newer typing_extensions; pip tries to
-# uninstall the debian one and dies with "Cannot uninstall typing_extensions 4.10.0, RECORD file
-# not found. Hint: The package was installed by debian." Fix: pip-install typing_extensions with
-# --ignore-installed FIRST so pip owns it (writes RECORD) and can replace it cleanly later.
+#
+# DPKG/PIP CONFLICT FIX (run 30778933444, all 4): Ubuntu 24.04 ships python packages as
+# dpkg-managed installs (python3-yaml=PyYAML, python3-typing-extensions, python3-requests, ...).
+# When pip needs to change one of them it tries to uninstall it and dies with:
+#   "Cannot uninstall <pkg>, RECORD file not found. Hint: The package was installed by debian."
+# This hit typing_extensions (build 6) then PyYAML (build 7) — a whack-a-mole, one package at a
+# time. --ignore-installed on EVERY pip line kills the whole error class: pip never attempts an
+# uninstall, it just installs over the debian files. We own the files pip touches.
+timeout 600 pip3 install --break-system-packages --ignore-installed "httpx[socks]==0.28.1" "httpcore==1.0.9"
 timeout 120 pip3 install --break-system-packages --ignore-installed typing_extensions
-timeout 600 pip3 install --break-system-packages hermes-agent
-timeout 1200 pip3 install --break-system-packages fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
+timeout 600 pip3 install --break-system-packages --ignore-installed hermes-agent
+timeout 1200 pip3 install --break-system-packages --ignore-installed fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
 # NPM packages — --unsafe-perm for global installs.
 # @gitlawb/openclaude (NOT bare openclaude squat); kimi-code npm-only (pip version conflicts on bin);
