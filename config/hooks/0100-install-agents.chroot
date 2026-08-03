@@ -24,6 +24,12 @@ timeout 600 apt-get update && timeout 600 apt-get install -y cloudflared
 # (~5 min each) then every hermes-agent version (~50 min each) — it NEVER completes.
 # Fix: pre-pin the shared pins, install hermes-agent alone, then the rest. No backtracking.
 timeout 600 pip3 install --break-system-packages "httpx[socks]==0.28.1" "httpcore==1.0.9"
+# Build 6 root cause: Ubuntu 24.04 ships typing_extensions 4.10.0 as dpkg package
+# (python3-typing-extensions). hermes-agent deps need a newer typing_extensions; pip tries to
+# uninstall the debian one and dies with "Cannot uninstall typing_extensions 4.10.0, RECORD file
+# not found. Hint: The package was installed by debian." Fix: pip-install typing_extensions with
+# --ignore-installed FIRST so pip owns it (writes RECORD) and can replace it cleanly later.
+timeout 120 pip3 install --break-system-packages --ignore-installed typing_extensions
 timeout 600 pip3 install --break-system-packages hermes-agent
 timeout 1200 pip3 install --break-system-packages fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
