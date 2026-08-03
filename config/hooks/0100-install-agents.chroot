@@ -17,7 +17,15 @@ timeout 600 apt-get update && timeout 600 apt-get install -y cloudflared
 
 # Python packages — hermes-agent (NOT hermes-cli squat), aider, mistral-vibe (NOT bare vibe:
 # pypi "vibe" is an unrelated broken sdist that fails metadata generation), huggingface_hub (hf CLI)
-timeout 1200 pip3 install --break-system-packages hermes-agent fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
+#
+# PIP BACKTRACKING FIX: hermes-agent pins httpx[socks]==0.28.1; aider-chat and mistral-vibe
+# pin httpcore==1.0.9 + httpx==0.28.1; litellm wants httpx<1.0,>=0.28.0. These are COMPATIBLE,
+# but resolving them all in ONE pip command makes pip walk down through every httpcore version
+# (~5 min each) then every hermes-agent version (~50 min each) — it NEVER completes.
+# Fix: pre-pin the shared pins, install hermes-agent alone, then the rest. No backtracking.
+timeout 600 pip3 install --break-system-packages "httpx[socks]==0.28.1" "httpcore==1.0.9"
+timeout 600 pip3 install --break-system-packages hermes-agent
+timeout 1200 pip3 install --break-system-packages fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
 # NPM packages — --unsafe-perm for global installs.
 # @gitlawb/openclaude (NOT bare openclaude squat); kimi-code npm-only (pip version conflicts on bin);
