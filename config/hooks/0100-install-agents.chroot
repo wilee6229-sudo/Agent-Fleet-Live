@@ -2,37 +2,41 @@
 set -e
 echo "=== AGENT FLEET CHROOT HOOK ==="
 
+# Every network/install step below is wrapped in `timeout <secs>` so a silent
+# hang (interactive prompt, stalled download) FAILS FAST with a visible error
+# instead of stalling the whole CI build for hours.
+
 # Node.js
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt-get install -y nodejs
+timeout 300 curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+timeout 600 apt-get install -y nodejs
 
 # Cloudflared — official repo (key URL changed 2025; cloudflare-main.gpg is current)
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
+timeout 120 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflared.gpg
 echo "deb [signed-by=/usr/share/keyrings/cloudflared.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflared.list
-apt-get update && apt-get install -y cloudflared
+timeout 600 apt-get update && timeout 600 apt-get install -y cloudflared
 
 # Python packages — hermes-agent (NOT hermes-cli squat), aider, mistral-vibe (NOT bare vibe:
 # pypi "vibe" is an unrelated broken sdist that fails metadata generation), huggingface_hub (hf CLI)
-pip3 install --break-system-packages hermes-agent fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
+timeout 1200 pip3 install --break-system-packages hermes-agent fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
 # NPM packages — --unsafe-perm for global installs.
 # @gitlawb/openclaude (NOT bare openclaude squat); kimi-code npm-only (pip version conflicts on bin);
 # qwen-code via @qwen-code/qwen-code (pip package does not exist)
-npm install -g --unsafe-perm opencode-ai openclaw @gitlawb/openclaude 9router pm2 @24klynx/cli @mem0/cli agent-browser oh-my-opencode @qwen-code/qwen-code kimi-code free-claude-code @google/gemini-cli @gitlawb/zero cursor-agent @openai/codex eas-cli aion nemoclaw freebuff byterover-cli yarn pnpm
+timeout 1200 npm install -g --unsafe-perm opencode-ai openclaw @gitlawb/openclaude 9router pm2 @24klynx/cli @mem0/cli agent-browser oh-my-opencode @qwen-code/qwen-code kimi-code free-claude-code @google/gemini-cli @gitlawb/zero cursor-agent @openai/codex eas-cli aion nemoclaw freebuff byterover-cli yarn pnpm
 
 # ZeroClaw — non-fatal: network hiccups must not fail the build
-curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh | bash || echo "WARN: zeroclaw install failed, continuing"
+timeout 300 curl -fsSL https://raw.githubusercontent.com/zeroclaw-labs/zeroclaw/master/install.sh | bash || echo "WARN: zeroclaw install failed, continuing"
 
 # OpenGateway — non-fatal
-curl -fsSL https://gitlawb.com/install.sh | bash || echo "WARN: opengateway install failed, continuing"
+timeout 300 curl -fsSL https://gitlawb.com/install.sh | bash || echo "WARN: opengateway install failed, continuing"
 
 # open-grok — shell installer, OAuth login, no API key. Non-fatal.
-curl -fsSL https://github.com/mweinbach/open-grok/releases/latest/download/install.sh | bash || echo "WARN: open-grok install failed, continuing"
+timeout 300 curl -fsSL https://github.com/mweinbach/open-grok/releases/latest/download/install.sh | bash || echo "WARN: open-grok install failed, continuing"
 
 # llama.cpp — prebuilt ubuntu x64 tarball (b10235, ~16MB), NO source build.
 # User prefers llama.cpp over ollama. Models are user-downloaded at runtime (GBs each, not shipped).
 mkdir -p /opt/llama.cpp && cd /opt/llama.cpp
-curl -fsSL https://github.com/ggml-org/llama.cpp/releases/download/b10235/llama-b10235-bin-ubuntu-x64.tar.gz -o llama.tar.gz \
+timeout 600 curl -fsSL https://github.com/ggml-org/llama.cpp/releases/download/b10235/llama-b10235-bin-ubuntu-x64.tar.gz -o llama.tar.gz \
   && tar -xzf llama.tar.gz --strip-components=1 && rm -f llama.tar.gz \
   && ln -sf /opt/llama.cpp/llama-cli /usr/local/bin/llama-cli \
   && ln -sf /opt/llama.cpp/llama-server /usr/local/bin/llama-server \
