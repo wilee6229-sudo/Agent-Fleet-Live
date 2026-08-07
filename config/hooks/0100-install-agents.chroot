@@ -34,7 +34,12 @@ timeout 600 apt-get update && timeout 600 apt-get install -y cloudflared
 timeout 600 pip3 install --break-system-packages --ignore-installed "httpx[socks]==0.28.1" "httpcore==1.0.9"
 timeout 120 pip3 install --break-system-packages --ignore-installed typing_extensions
 timeout 600 pip3 install --break-system-packages --ignore-installed hermes-agent
-timeout 1200 pip3 install --break-system-packages --ignore-installed fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
+# NOTE (2026-08-07): the pins below are REPEATED in this batch line ON PURPOSE.
+# --ignore-installed (line 37's flag) makes pip ignore the line-34 pre-install, so
+# without the pins here pip re-resolves httpcore/httpx from scratch and backtracks
+# through every version (~5 min each) until the build dies. In-command pins make
+# pip resolve them as exact versions immediately. Run 31137535522 confirmed.
+timeout 1200 pip3 install --break-system-packages --ignore-installed "httpx[socks]==0.28.1" "httpcore==1.0.9" fastapi uvicorn requests aiohttp litellm qdrant-client aider-chat mistral-vibe huggingface_hub
 
 # NPM packages — --unsafe-perm for global installs.
 # @gitlawb/openclaude (NOT bare openclaude squat); kimi-code npm-only (pip version conflicts on bin);
