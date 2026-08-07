@@ -1,5 +1,13 @@
 name: Build Agent Fleet ISO
 
+# PIVOT (2026-08-07): live-build assembled an ISO from a bare debootstrap and
+# failed 6x at live-build infrastructure (debian-installer flavour, grub-legacy
+# removed in noble, missing initrd) — never at our agent payload. Replaced with
+# SQUASHFS INJECTION: take the official Ubuntu Server 24.04 live-server ISO
+# (working boot chain), unsquashfs its rootfs, install our agents + casper live
+# boot inside it, repack. Boot chain = stock Ubuntu; only the squashfs content
+# is ours. Failure surface = just our hook (which is proven).
+
 on:
   workflow_dispatch:
   push:
@@ -9,52 +17,182 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Point releases roll (24.04.2 404'd already) — resolve the current one
+      # from the releases directory listing instead of hardcoding.
+      - name: Resolve latest Ubuntu 24.04 live-server ISO
+        id: iso
+        run: |
+          set -e
+          BASE="https://releases.ubuntu.com/24.04/"
+          FILE=$(curl -fsSL "$BASE" | grep -oE 'ubuntu-24\.04\.[0-9]+-live-server-amd64\.iso' | sort -V | tail -1)
+          [ -n "$FILE" ] || { echo "No 24.04 live-server ISO found at $BASE"; exit 1; }
+          echo "url=${BASE}${FILE}" >> "$GITHUB_OUTPUT"
+          echo "file=${FILE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved: ${BASE}${FILE}"
+
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y live-build debootstrap squashfs-tools xorriso genisoimage grub-pc-bin grub-efi-amd64-bin syslinux syslinux-common isolinux mtools qemu-user-static binfmt-support
+          sudo apt-get install -y squashfs-tools xorriso p7zip-full
 
-      - name: Build ISO
+      - name: Download official Ubuntu Server ISO
         run: |
-          sudo rm -rf chroot .build cache auto binary
-          sudo lb clean || true
-          # Rebuild config from config/build script (https mirrors, amd64 noble)
-          sudo bash config/build
-          # Run lb build but catch its exit code
-          set +e
-          sudo lb build 2>&1
-          EXIT_CODE=$?
+          curl -fL --retry 3 -o ubuntu-server.iso "${{ steps.iso.outputs.url }}"
+          ls -lh ubuntu-server.iso
+
+      - name: Extract ISO
+        run: |
+          mkdir -p iso
+          7z x -y -oiso ubuntu-server.iso > /dev/null
+          echo "--- ISO layout (top) ---"
+          ls iso/
+          echo "--- boot/grub ---"
+          ls iso/boot/grub/ 2>/dev/null || true
+
+      # Discover the boot images + base squashfs so the repack adapts to the
+      # point release's layout instead of assuming a fixed one.
+      - name: Discover boot images and squashfs
+        id: layout
+        run: |
           set -e
-          echo "lb build exit code: $EXIT_CODE"
-          echo "--- Searching for ISO ---"
-          find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
-          ls -la
+          # Authoritative boot layout from the ISO's own El Torito metadata (log only).
+          xorriso -indev ubuntu-server.iso -report_el_torito plain 2>/dev/null | grep -E "Boot (record|image)" || true
+          SQFS=$(find iso -name "filesystem.squashfs" | head -1)
+          ELT=$(find iso -name "eltorito.img" | head -1 || true)
+          EFI=$(find iso -name "efi.img" | head -1 || true)
+          [ -n "$SQFS" ] || { echo "No filesystem.squashfs found in ISO"; exit 1; }
+          echo "squashfs=$SQFS" >> "$GITHUB_OUTPUT"
+          echo "squashfs_rel=${SQFS#iso/}" >> "$GITHUB_OUTPUT"
+          echo "eltorito=${ELT#iso/}" >> "$GITHUB_OUTPUT"
+          echo "efi=${EFI#iso/}" >> "$GITHUB_OUTPUT"
+          echo "squashfs: $SQFS"
+          echo "eltorito: $ELT (empty = BIOS boot via grub.cfg only)"
+          echo "efi: $EFI"
 
-      - name: Find ISO
-        id: find-iso
+      - name: Unsquashfs base rootfs
         run: |
-          ISO=$(find . -type f \( -name "*.hybrid.iso" -o -name "*.iso" -o -name "*.img" \) | head -1)
-          if [ -z "$ISO" ]; then
-            echo "No ISO found. Searching broadly..."
-            find . -type f \( -name "*.iso" -o -name "*.img" \) 2>/dev/null
-            ls config/
-            ls binary/ 2>/dev/null || true
-            exit 1
+          mkdir -p rootfs
+          sudo unsquashfs -d rootfs "${{ steps.layout.outputs.squashfs }}"
+          sudo du -sh rootfs
+
+      - name: Prepare chroot
+        run: |
+          sudo mount --bind /dev rootfs/dev
+          sudo mount --bind /proc rootfs/proc
+          sudo mount --bind /sys rootfs/sys
+          sudo cp /etc/resolv.conf rootfs/etc/resolv.conf
+          # Minimal deps the agent hook assumes (lsb_release for cloudflared
+          # repo line, curl/gnupg for nodesource + cloudflared, python3-pip).
+          sudo chroot rootfs bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y -qq lsb-release curl ca-certificates gnupg python3-pip' 
+
+      - name: Run agent install hook in chroot
+        run: |
+          sudo cp config/hooks/0100-install-agents.chroot rootfs/tmp/install-agents.sh
+          sudo chmod +x rootfs/tmp/install-agents.sh
+          sudo chroot rootfs bash /tmp/install-agents.sh
+          sudo rm -f rootfs/tmp/install-agents.sh
+
+      # Live-ify: casper gives us the stock desktop-style live boot
+      # (boot=casper finds /casper/filesystem.squashfs). linux-image-generic +
+      # update-initramfs produce OUR vmlinuz/initrd so the boot matches the
+      # rootfs exactly. Disable subiquity so the installer never autostarts.
+      - name: Install live boot stack + disable installer
+        run: |
+          sudo chroot rootfs bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get install -y -qq casper linux-image-generic initramfs-tools && update-initramfs -u -k all'
+          sudo chroot rootfs bash -c 'systemctl disable subiquity subiquity-server ubuntu-desktop-installer 2>/dev/null || true; systemctl set-default multi-user.target 2>/dev/null || ln -sf /lib/systemd/system/multi-user.target /etc/systemd/system/default.target || true'
+          sudo chroot rootfs bash -c 'hostnamectl set-hostname agent-fleet-live 2>/dev/null || true'
+          echo "--- rootfs /boot ---"
+          sudo ls -lh rootfs/boot/
+
+      - name: Bake opencode/Sisyphus config into rootfs
+        run: |
+          if [ -d config/includes.chroot/home/agent/.config/opencode ]; then
+            sudo mkdir -p rootfs/home/agent/.config/opencode
+            sudo cp -r config/includes.chroot/home/agent/.config/opencode/. rootfs/home/agent/.config/opencode/
+            sudo chown -R agent:agent rootfs/home/agent/.config
           fi
-          echo "iso_path=$ISO" >> $GITHUB_OUTPUT
-          echo "Found: $ISO"
-          ls -lh "$ISO"
+          sudo chown -R agent:agent rootfs/home/agent 2>/dev/null || true
+          sudo ls -la rootfs/home/agent/.config/opencode/ 2>/dev/null || true
+
+      - name: Rebuild squashfs with agents
+        run: |
+          # Unmount first: mksquashfs would otherwise traverse the bind mounts.
+          sudo umount rootfs/proc rootfs/sys rootfs/dev || true
+          sudo mksquashfs rootfs iso/casper/filesystem.squashfs \
+            -comp xz -b 1M -noappend -processors 4 \
+            -e proc sys dev run tmp
+          sudo du -sx --block-size=1 rootfs | awk '{print $1}' | sudo tee iso/casper/filesystem.size
+          # Multiple kernels possible — copy the highest-versioned pair only.
+          VMLINUZ=$(sudo ls -1 rootfs/boot/vmlinuz-* 2>/dev/null | tail -1)
+          INITRD=$(sudo ls -1 rootfs/boot/initrd.img-* 2>/dev/null | tail -1)
+          [ -n "$VMLINUZ" ] && sudo cp "$VMLINUZ" iso/casper/vmlinuz
+          [ -n "$INITRD" ] && sudo cp "$INITRD" iso/casper/initrd
+          ls -1 rootfs/boot/ 2>/dev/null | head -5 || true
+          echo "run_number=${{ github.run_number }}" | sudo tee iso/AGENT_FLEET_VERSION > /dev/null
+          date -u +"built=%Y-%m-%dT%H:%M:%SZ" | sudo tee -a iso/AGENT_FLEET_VERSION > /dev/null
+          ls -lh iso/casper/
+
+      # Trim the ISO tree: drop the installer squashfs + apt archive (~2GB) —
+      # a live ISO needs neither. Keep boot chain + our casper dir.
+      - name: Trim ISO tree + write live grub.cfg
+        run: |
+          sudo rm -rf iso/install iso/dists iso/pool
+          cat > iso/boot/grub/grub.cfg <<'EOF'
+          set default="0"
+          set timeout=5
+          if serial --unit=0 --speed=115200; then
+            terminal_input serial console
+            terminal_output serial console
+          fi
+          menuentry "Agent Fleet Live" {
+              linux /casper/vmlinuz boot=casper quiet console=ttyS0,115200 ---
+              initrd /casper/initrd
+          }
+          menuentry "Agent Fleet Live (nomodeset)" {
+              linux /casper/vmlinuz boot=casper nomodeset console=ttyS0,115200 ---
+              initrd /casper/initrd
+          }
+          EOF
+          (cd iso && find . -type f ! -name md5sum.txt -exec md5sum {} + > md5sum.txt)
+
+      - name: Repack ISO with xorriso
+        run: |
+          set -e
+          ELT="${{ steps.layout.outputs.eltorito }}"
+          EFI="${{ steps.layout.outputs.efi }}"
+          dd if=ubuntu-server.iso of=/tmp/isohdpfx.bin bs=512 count=1 status=none
+          ARGS=(xorriso -as mkisofs
+                -r -V "AGENT-FLEET-LIVE" -J -joliet-long -cache-inodes -iso-level 3
+                -o agent-fleet-live.iso
+                -isohybrid-mbr /tmp/isohdpfx.bin)
+          if [ -n "$ELT" ]; then
+            ARGS+=(-b "$ELT" -c boot.catalog -no-emul-boot -boot-load-size 4 -boot-info-table)
+          fi
+          if [ -n "$EFI" ]; then
+            ARGS+=(-eltorito-alt-boot -e "$EFI" -no-emul-boot -isohybrid-gpt-basdat)
+          fi
+          ARGS+=(iso/)
+          echo "xorriso args: ${ARGS[*]}"
+          sudo "${ARGS[@]}"
+          ls -lh agent-fleet-live.iso
+
+      - name: Verify ISO
+        run: |
+          file agent-fleet-live.iso
+          xorriso -indev agent-fleet-live.iso -report_el_torito 2>&1 | head -20 || true
+          echo "--- embedded casper content ---"
+          unsquashfs -s iso/casper/filesystem.squashfs 2>/dev/null | head -8 || true
 
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent-fleet-live
-          path: ${{ steps.find-iso.outputs.iso_path }}
+          path: agent-fleet-live.iso
           retention-days: 30
 
       - name: Create Release
@@ -63,5 +201,24 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Agent Fleet Live Build ${{ github.run_number }}
-          files: ${{ steps.find-iso.outputs.iso_path }}
+          files: agent-fleet-live.iso
           generate_release_notes: true
+
+      # Non-gating boot smoke test (TCG emulation is slow; it must never block
+      # artifact delivery). If we see a login prompt / agetty on ttyS0, the ISO
+      # boots. console=ttyS0 in grub.cfg makes serial output visible here.
+      - name: Smoke test boot (non-gating)
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          sudo apt-get install -y -qq qemu-system-x86 > /dev/null
+          timeout 900 qemu-system-x86_64 -m 2048 -cdrom agent-fleet-live.iso -boot d \
+            -nographic -no-reboot 2>&1 | tee qemu-boot.log || true
+          if grep -qE "login:|agetty|ttyS0|Agent Fleet Live" qemu-boot.log; then
+            echo "SMOKE: boot output detected"
+            grep -E "login:|agetty|Agent Fleet Live" qemu-boot.log | head -5
+          else
+            echo "SMOKE: no recognizable output yet (TCG is slow; kernel may still be booting)"
+            tail -20 qemu-boot.log
+          fi
