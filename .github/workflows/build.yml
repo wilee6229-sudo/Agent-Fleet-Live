@@ -48,11 +48,15 @@ jobs:
       - name: Extract ISO
         run: |
           mkdir -p iso
-          7z x -y -oiso ubuntu-server.iso > /dev/null
+          # xorriso, NOT 7z: p7zip's ISO9660 handler silently drops large
+          # multi-extent files (the 2.5GB filesystem.squashfs vanished in run 8).
+          xorriso -osirrox on -indev ubuntu-server.iso -extract / iso/ 2>&1 | tail -3
           echo "--- ISO layout (top) ---"
           ls iso/
           echo "--- boot/grub ---"
           ls iso/boot/grub/ 2>/dev/null || true
+          echo "--- casper ---"
+          ls iso/casper/ 2>/dev/null || true
 
       # Discover the boot images + base squashfs so the repack adapts to the
       # point release's layout instead of assuming a fixed one.
@@ -60,11 +64,16 @@ jobs:
         id: layout
         run: |
           set -e
-          # Authoritative boot layout from the ISO's own El Torito metadata (log only).
-          xorriso -indev ubuntu-server.iso -report_el_torito plain 2>/dev/null | grep -E "Boot (record|image)" || true
+          # Authoritative boot layout from the ISO's own El Torito metadata.
+          xorriso -indev ubuntu-server.iso -report_el_torito plain 2>/dev/null | grep -iE "boot (record|image)" || true
           SQFS=$(find iso -name "filesystem.squashfs" | head -1)
           ELT=$(find iso -name "eltorito.img" | head -1 || true)
           EFI=$(find iso -name "efi.img" | head -1 || true)
+          # Fallback: parse the El Torito report for the boot image paths.
+          if [ -z "$ELT" ]; then
+            ELT=$(xorriso -indev ubuntu-server.iso -report_el_torito plain 2>/dev/null | grep -i "boot image" | sed -E 's/.*(\/boot\/[^ ]+)\.img.*/\1.img/' | head -1)
+            [ -n "$ELT" ] && ELT="iso$ELT"
+          fi
           [ -n "$SQFS" ] || { echo "No filesystem.squashfs found in ISO"; exit 1; }
           echo "squashfs=$SQFS" >> "$GITHUB_OUTPUT"
           echo "squashfs_rel=${SQFS#iso/}" >> "$GITHUB_OUTPUT"
