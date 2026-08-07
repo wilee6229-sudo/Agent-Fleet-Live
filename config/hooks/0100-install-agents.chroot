@@ -80,4 +80,14 @@ echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
 mkdir -p /home/agent/fleet/{logs,inboxes,backups,config}
 chown -R agent:agent /home/agent/fleet
 chown -R agent:agent /home/agent
+
+# OMO (oh-my-openagent) — pre-warm opencode's plugin cache so `opencode --auto`
+# boots with the Sisyphus/OMO agent harness on FIRST run (no npm dependency at boot).
+# Config wiring ships via includes.chroot (home/agent/.config/opencode/{opencode.jsonc,tui.json}).
+# opencode's plugin cache is a standard npm project dir: package.json pin + node_modules.
+# Non-fatal: if it fails, opencode auto-installs the plugin from the config on first boot.
+mkdir -p /home/agent/.cache/opencode/packages/oh-my-openagent@latest
+chown -R agent:agent /home/agent/.cache
+timeout 900 runuser -u agent -- sh -c 'cd /home/agent/.cache/opencode/packages/oh-my-openagent@latest && HOME=/home/agent npm install oh-my-openagent@4.19.4 --no-audit --no-fund' \
+  || echo "WARN: OMO plugin cache pre-warm failed, opencode will install on first boot"
 echo "=== HOOK COMPLETE ==="
