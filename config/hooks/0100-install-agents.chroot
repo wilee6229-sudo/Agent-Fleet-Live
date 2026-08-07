@@ -65,8 +65,17 @@ timeout 600 curl -fsSL https://github.com/ggml-org/llama.cpp/releases/download/b
   || echo "WARN: llama.cpp install failed, continuing"
 
 # User setup
-useradd -m -s /bin/bash -G sudo,video,input,audio,seat,render agent 2>/dev/null || true
-echo "agent:agent" | chpasswd
+# FAILURE MODE (build 31139722372): useradd -G fails if ANY listed group is missing
+# in a minimal chroot (render/seat need X/systemd packages). The `|| true` swallowed
+# it, so NO agent user existed and chpasswd died with "pam_chauthtok() failed".
+# Fix: create the user with NO groups, then add groups defensively (only if they exist).
+useradd -m -s /bin/bash agent 2>/dev/null || true
+for g in sudo video input audio seat render; do
+  getent group "$g" >/dev/null 2>&1 && usermod -aG "$g" agent 2>/dev/null || true
+done
+# chpasswd -e writes /etc/shadow directly (no PAM) - immune to chroot PAM breakage.
+# Hash below is SHA-512 of "agent" (openssl passwd -6, rounds=5000 default).
+echo 'agent:$6$3hig8jxqPsqoMdza$N4icT0Qh8vYSyMP7I/75Ixj9y7xC647pfQGhGbJl726UK50T644QKGn8ZOLNO4y5sh7Nllrb01GJjfPfoCnZC.' | chpasswd -e
 echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
 mkdir -p /home/agent/fleet/{logs,inboxes,backups,config}
 chown -R agent:agent /home/agent/fleet
