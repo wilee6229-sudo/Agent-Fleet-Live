@@ -4,7 +4,7 @@ lb config noauto \
     --mode ubuntu \
     --archive-areas "main restricted universe multiverse" \
     --architectures amd64 \
-    --bootloader grub \
+    --bootloader grub2 \
     --binary-images iso-hybrid \
     --debian-installer false \
     --memtest none \

@@ -86,6 +86,10 @@ chown -R agent:agent /home/agent
 # Config wiring ships via includes.chroot (home/agent/.config/opencode/{opencode.jsonc,tui.json}).
 # opencode's plugin cache is a standard npm project dir: package.json pin + node_modules.
 # Write package.json FIRST (npm errors ENOENT if it's absent), then plain `npm install`.
+# npm 11 (node 24) fix: without --package-lock=false, plain `npm install` in a dir that
+# has package.json but NO package-lock.json dies with "ENOENT ... package-lock.json".
+# Pre-warm only needs node_modules on disk; the lockfile is irrelevant (opencode loads
+# the plugin from node_modules directly and re-installs on first boot if needed).
 # Non-fatal: if it fails, opencode auto-installs the plugin from the config on first boot.
 mkdir -p /home/agent/.cache/opencode/packages/oh-my-openagent@latest
 cat > /home/agent/.cache/opencode/packages/oh-my-openagent@latest/package.json <<'EOF'
@@ -96,6 +100,6 @@ cat > /home/agent/.cache/opencode/packages/oh-my-openagent@latest/package.json <
 }
 EOF
 chown -R agent:agent /home/agent/.cache
-timeout 900 runuser -u agent -- sh -c 'cd /home/agent/.cache/opencode/packages/oh-my-openagent@latest && HOME=/home/agent npm install --no-audit --no-fund' \
+timeout 900 runuser -u agent -- sh -c 'cd /home/agent/.cache/opencode/packages/oh-my-openagent@latest && HOME=/home/agent npm install --no-audit --no-fund --package-lock=false' \
   || echo "WARN: OMO plugin cache pre-warm failed, opencode will install on first boot"
 echo "=== HOOK COMPLETE ==="
