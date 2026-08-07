@@ -6,7 +6,7 @@ lb config noauto \
     --architectures amd64 \
     --bootloader grub \
     --binary-images iso-hybrid \
-    --debian-installer none \
+    --debian-installer false \
     --memtest none \
     --parent-mirror-bootstrap "https://archive.ubuntu.com/ubuntu" \
     --parent-mirror-chroot "https://archive.ubuntu.com/ubuntu" \
